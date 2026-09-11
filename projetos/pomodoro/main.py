@@ -2,25 +2,9 @@ import json
 import time
 import winsound
 from pathlib import Path
+from datetime import date
 
 import flet as ft
-
-# =====================================================================
-# Pomodoro Inteligente v2
-# Novidades:
-#   1) Persistência automática em tarefas.json
-#   2) Ciclo Estudo -> Descanso automático (opcional)
-#   3) Controle de som (beep liga/desliga)
-#   4) Contador de sessões concluídas
-#   5) Editar tarefa (nome e tempo) via diálogo
-#   6) Prioridade Alta/Média/Baixa com barra de cor
-#   7) Pesquisa/filtro de tarefas
-#   8) Limpar pendentes/concluídas em lote + Refazer concluída
-#   9) Barra de progresso com % e tempo decorrido + aviso ao zerar
-#  10) Atalhos de teclado (espaço = iniciar/pausar, R = resetar)
-#  11) Tema claro/escuro pastel + cabeçalho com resumo
-#  12) Contadores nas abas e estados vazios amigáveis
-# =====================================================================
 
 PALETA = {
     "clara": {
@@ -70,6 +54,8 @@ def main(page: ft.Page):
         "tempo_restante": 0,
         "rodando": False,
         "sessoes": 0,
+        "meta": 4,
+        "historico": [],
     }
 
     def T():
@@ -89,6 +75,27 @@ def main(page: ft.Page):
         try:
             ARQUIVO.write_text(
                 json.dumps(ESTADO["tarefas"], ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
+    # ---------------- Persistência do histórico e meta ----------------
+    ARQH = Path(__file__).resolve().with_name("historico.json")
+
+    def carregar_historicos():
+        try:
+            dados = json.loads(ARQH.read_text(encoding="utf-8")) if ARQH.exists() else {}
+        except Exception:
+            dados = {}
+        ESTADO["meta"] = dados.get("meta", 4)
+        ESTADO["historico"] = dados.get("historico", [])
+
+    def salvar_historicos():
+        try:
+            ARQH.write_text(
+                json.dumps({"meta": ESTADO["meta"], "historico": ESTADO["historico"]},
+                           ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
         except Exception:
@@ -373,11 +380,13 @@ def main(page: ft.Page):
     def atualizar_contadores():
         pend = sum(1 for t in ESTADO["tarefas"] if not t["concluida"])
         conc = sum(1 for t in ESTADO["tarefas"] if t["concluida"])
-        if len(nav_itens) >= 3:
+        if len(nav_itens) >= 4:
             nav_itens[0][2].value = f"Tarefas ({pend})"
             nav_itens[1][2].value = "Cronômetro"
             nav_itens[2][2].value = f"Concluídas ({conc})"
+            nav_itens[3][2].value = "Estatísticas"
         rotulo_sessoes.value = f"{ESTADO['sessoes']} sessões"
+        atualizar_estatisticas()
         page.update()
 
     def atualizar_listas():
@@ -396,6 +405,65 @@ def main(page: ft.Page):
         atualizar_contadores()
         page.update()
 
+    # ---------------- Estatísticas ----------------
+    def registrar_sessao(tipo, minutos, nome):
+        ESTADO["historico"].append({
+            "data": date.today().isoformat(),
+            "hora": time.strftime("%H:%M"),
+            "tipo": tipo,
+            "min": minutos,
+            "nome": nome,
+        })
+        salvar_historicos()
+        atualizar_estatisticas()
+
+    def atualizar_estatisticas():
+        hoje = date.today().isoformat()
+        hoje_list = [s for s in ESTADO["historico"] if s["data"] == hoje]
+        foco_hoje = [s for s in hoje_list if s["tipo"] != "DESCANSO"]
+        min_hoje = sum(s["min"] for s in foco_hoje)
+        total = len(ESTADO["historico"])
+        pend = sum(1 for t in ESTADO["tarefas"] if not t["concluida"])
+        conc = sum(1 for t in ESTADO["tarefas"] if t["concluida"])
+        taxa = int(round(100 * conc / (conc + pend))) if (conc + pend) else 0
+
+        feitos = len(foco_hoje)
+        meta = max(1, ESTADO["meta"])
+        progresso_meta.value = f"{feitos}/{meta} hoje"
+        barra_meta.value = min(1.0, feitos / meta)
+        rotulo_hoje.value = f"{len(foco_hoje)} sessões de foco · {min_hoje} min hoje"
+        rotulo_total.value = f"Total de sessões registradas: {total}"
+        rotulo_concl.value = f"Taxa de conclusão: {taxa}%"
+
+        lista_historico.controls.clear()
+        for s in reversed(ESTADO["historico"][-20:]):
+            lista_historico.controls.append(
+                ft.Row([
+                    ft.Icon(ft.Icons.CHECK_CIRCLE, color=T()["ok_i"], size=18),
+                    ft.Text(f"{s['data'][5:]} {s['hora']} · {s['nome']}", size=13,
+                            color=T()["texto"], expand=True),
+                    ft.Text(f"{s['min']} min", size=12, color=T()["subt"]),
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=6)
+            )
+        vazio_historico.visible = len(ESTADO["historico"]) == 0
+        page.update()
+
+    def definir_meta(e):
+        try:
+            m = int((campo_meta.value or "").strip())
+        except ValueError:
+            m = 4
+        ESTADO["meta"] = max(1, m)
+        salvar_historicos()
+        atualizar_estatisticas()
+        avisar(f"Meta diária definida em {ESTADO['meta']} pomodoros.")
+
+    def limpar_historico(e):
+        ESTADO["historico"] = []
+        salvar_historicos()
+        atualizar_estatisticas()
+        avisar("Histórico apagado.")
+
     def limpar_cronometro():
         ESTADO["tempo_total"] = 0
         ESTADO["tempo_restante"] = 0
@@ -406,7 +474,7 @@ def main(page: ft.Page):
         barra_progresso.value = 0
         rotulo_percent.value = "0%"
         rotulo_decorrido.value = "Decorrido 00:00 · Falta 00:00"
-        page.title = "Pomodoro Inteligente"
+        page.title = "Pomodoro"
 
     # ---------------- Cronômetro ----------------
     def atualizar_visual_cronometro():
@@ -426,7 +494,10 @@ def main(page: ft.Page):
             relogio.color = T()["alerta"]
         else:
             relogio.color = T()["titulo"]
-        page.title = f"{formatar(ESTADO['tempo_restante'])} · Pomodoro"
+        if ESTADO["rodando"]:
+            page.title = f"{formatar(ESTADO['tempo_restante'])} · Pomodoro"
+        else:
+            page.title = "Pomodoro"
         page.update()
 
     def carregar_tarefa(t):
@@ -460,6 +531,7 @@ def main(page: ft.Page):
 
     def pausar(e):
         ESTADO["rodando"] = False
+        page.title = "Pomodoro"
         page.update()
 
     def resetar(e):
@@ -476,13 +548,19 @@ def main(page: ft.Page):
 
     def finalizar():
         ESTADO["rodando"] = False
+        tipo_fim = tipo_atual.value or "TAREFA"
+        min_fim = max(1, ESTADO["tempo_total"] // 60)
+        nome_fim = (ESTADO["tarefa_atual"]["nome"] if ESTADO["tarefa_atual"] is not None
+                    else f"Sessão {tipo_fim.lower()}")
         tocar_alarme()
-        ESTADO["sessoes"] += 1
+        if tipo_fim != "DESCANSO":
+            ESTADO["sessoes"] += 1
         atualizar_contadores()
         if ESTADO["tarefa_atual"] is not None and not ESTADO["tarefa_atual"]["concluida"]:
             ESTADO["tarefa_atual"]["concluida"] = True
             salvar_dados()
             atualizar_listas()
+        registrar_sessao(tipo_fim, min_fim, nome_fim)
         avisar("Pomodoro concluído! 🎉")
         if ESTADO["auto_descanso"]:
             entrar_descanso()
@@ -540,6 +618,7 @@ def main(page: ft.Page):
         aba_tarefas.visible = indice == 0
         aba_cronometro.visible = indice == 1
         aba_concluidas.visible = indice == 2
+        aba_estatisticas.visible = indice == 3
         for i, (cont, ic, tx) in enumerate(nav_itens):
             ativo = i == indice
             cont.bgcolor = T()["nav_ativo"] if ativo else T()["nav_inativo"]
@@ -580,6 +659,16 @@ def main(page: ft.Page):
         lbl_pendentes.color = T()["titulo"]
         lbl_sessoes_rapidas.color = T()["titulo"]
         lbl_concluidas.color = T()["titulo"]
+        rotulo_hoje.color = T()["texto"]
+        rotulo_total.color = T()["texto"]
+        rotulo_concl.color = T()["texto"]
+        rotulo_meta.color = T()["titulo"]
+        progresso_meta.color = T()["titulo"]
+        barra_meta.color = T()["titulo"]
+        barra_meta.bgcolor = T()["progresso"]
+        lbl_estatisticas.color = T()["titulo"]
+        lbl_historico_recente.color = T()["titulo"]
+        vazio_historico.color = T()["subt"]
         mostrar_aba(ESTADO.get("aba_atual", 0), mudar=False)
         selecionar_prio(ESTADO["prio_nova"])
         atualizar_listas()
@@ -593,7 +682,24 @@ def main(page: ft.Page):
     lbl_prioridade = ft.Text("Prioridade", size=12, color=T()["subt"])
     lbl_pendentes = ft.Text("Pendentes", weight=ft.FontWeight.BOLD, size=15, color=T()["titulo"])
     lbl_sessoes_rapidas = ft.Text("Sessões rápidas", weight=ft.FontWeight.BOLD, size=15, color=T()["titulo"])
+    # ---------------- Estatísticas (controles) ----------------
     lbl_concluidas = ft.Text("Tarefas concluídas", weight=ft.FontWeight.BOLD, size=16, color=T()["titulo"])
+    lbl_estatisticas = ft.Text("Estatísticas", weight=ft.FontWeight.BOLD, size=16, color=T()["titulo"])
+    rotulo_hoje = ft.Text("0 sessões de foco · 0 min hoje", size=14, color=T()["texto"])
+    rotulo_total = ft.Text("Total de sessões registradas: 0", size=14, color=T()["texto"])
+    rotulo_concl = ft.Text("Taxa de conclusão: 0%", size=14, color=T()["texto"])
+    rotulo_meta = ft.Text("Meta diária", size=15, weight=ft.FontWeight.BOLD, color=T()["titulo"])
+    progresso_meta = ft.Text("0/4 hoje", size=16, weight=ft.FontWeight.BOLD, color=T()["titulo"])
+    barra_meta = ft.ProgressBar(value=0, color=T()["titulo"], bgcolor=T()["progresso"],
+                                bar_height=8, border_radius=4)
+    campo_meta = ft.TextField(label="Meta/dia", value="4", width=90,
+                              keyboard_type=ft.KeyboardType.NUMBER)
+    botao_definir_meta = ft.FilledTonalButton("Definir", icon=ft.Icons.SAVE)
+    lbl_historico_recente = ft.Text("Histórico recente", weight=ft.FontWeight.BOLD, size=15, color=T()["titulo"])
+    lista_historico = ft.ListView(expand=True, spacing=6, padding=4)
+    vazio_historico = ft.Text("Nenhuma sessão registrada ainda. É só começar! 🍅",
+                              size=14, color=T()["subt"], text_align=ft.TextAlign.CENTER, visible=True)
+    botao_limpar_historico = ft.OutlinedButton("Limpar histórico", icon=ft.Icons.DELETE_SWEEP)
 
     # ---------------- Barra de navegação ----------------
     def criar_nav(icone, rotulo, indice):
@@ -619,6 +725,7 @@ def main(page: ft.Page):
         criar_nav(ft.Icons.LIST, "Tarefas", 0),
         criar_nav(ft.Icons.TIMER, "Cronômetro", 1),
         criar_nav(ft.Icons.CHECK_CIRCLE, "Concluídas", 2),
+        criar_nav(ft.Icons.TRENDING_UP, "Estatísticas", 3),
     ], spacing=6)
 
     # ---------------- Telas ----------------
@@ -659,12 +766,34 @@ def main(page: ft.Page):
         vazio_concluidas,
     ], spacing=12, expand=True)
 
+    aba_estatisticas = ft.Column([
+        ft.Row([lbl_estatisticas, ft.Container(expand=True), botao_limpar_historico],
+               vertical_alignment=ft.CrossAxisAlignment.CENTER),
+        ft.Container(
+            content=ft.Column([
+                rotulo_hoje,
+                rotulo_total,
+                rotulo_concl,
+            ], spacing=6),
+            padding=12, border_radius=12, bgcolor=T()["cartao"],
+        ),
+        rotulo_meta,
+        ft.Row([campo_meta, botao_definir_meta], spacing=8),
+        progresso_meta,
+        barra_meta,
+        ft.Divider(),
+        lbl_historico_recente,
+        lista_historico,
+        vazio_historico,
+    ], spacing=12, expand=True)
+
     conteudo = ft.Column([
         header,
         barra_nav,
         aba_tarefas,
         aba_cronometro,
         aba_concluidas,
+        aba_estatisticas,
     ], expand=True)
 
     # ---------------- Ligações (eventos) ----------------
@@ -683,11 +812,15 @@ def main(page: ft.Page):
     botao_tema.on_click = mudar_tema
     switch_som.on_change = ao_som
     switch_auto.on_change = ao_auto
+    botao_definir_meta.on_click = definir_meta
+    botao_limpar_historico.on_click = limpar_historico
     for cont, tx, p in prio_chips:
         cont.on_click = (lambda e, pr=p: selecionar_prio(pr))
 
     # ---------------- Inicialização ----------------
     carregar_dados()
+    carregar_historicos()
+    campo_meta.value = str(ESTADO["meta"])
     ESTADO["sessoes"] = 0
     selecionar_prio(ESTADO["prio_nova"])
     aplicar_visual()
