@@ -16,35 +16,42 @@
 
 Este repositório reúne os meus **estudos práticos com o framework Flet**, uma biblioteca Python que permite criar aplicações desktop, web e mobile com uma única base de código — usando os mesmos conceitos do Flutter, mas escrevendo 100% em Python.
 
-O objetivo é documentar a evolução do aprendizado: do primeiro "Olá Mundo" até apps com interatividade, componentes visuais e deploy via browser.
+O objetivo é documentar a evolução do aprendizado: do primeiro "Olá Mundo" até projetos completos com estado centralizado, persistência de dados e múltiplas telas.
 
 > **Por que Flet?** Por ser a ponte mais direta entre Python puro e interfaces modernas multiplataforma — sem HTML, sem JavaScript, sem frameworks separados.
 
 ---
 
-## Estrutura do Projeto
+## Estrutura do Repositório
 
 ```
 FLET/
 ├── basico/
-│   ├── inicio.py        # Primeiro contato com a biblioteca
-│   ├── olamago.py       # App mínimo com texto e view em browser
-│   └── main.py          # Contador de números interativo
+│   ├── inicio.py           # Primeiro contato com a biblioteca
+│   ├── olamago.py          # App mínimo com texto e view em browser
+│   └── main.py             # Contador de números interativo
 │
-└── atividades/
-    ├── atividade1/
-    │   └── main.py      # Tela estática com título e subtítulo
-    ├── atividade2/
-    │   └── main.py      # Cards de contato com ícones
-    ├── atividade3/
-    │   └── main.py      # Input de texto com saudação dinâmica
-    ├── atividade4/
-    │   └── main.py      # Lista de compras com quantidade dinâmica
-    └── capturas/
-        ├── captura1.png
-        ├── captura2.png
-        ├── captura3.png
-        └── captura4.png
+├── atividades/
+│   ├── atividade1/
+│   │   └── main.py         # Tela estática com título e subtítulo
+│   ├── atividade2/
+│   │   └── main.py         # Cards de contato com ícones
+│   ├── atividade3/
+│   │   └── main.py         # Input de texto com saudação dinâmica
+│   ├── atividade4/
+│   │   └── main.py         # Lista de compras com quantidade dinâmica
+│   └── capturas/
+│       ├── captura1.png
+│       ├── captura2.png
+│       ├── captura3.png
+│       └── captura4.png
+│
+└── projetos/
+    └── pomodoro/
+        ├── main.py         # Pomodoro Inteligente v2 (app completo)
+        ├── tarefas.json    # Gerado automaticamente pelo app
+        └── capturas/
+            └── captura1.png
 ```
 
 ---
@@ -99,7 +106,7 @@ def remover(e):
     pagina.update()
 ```
 
-**Conceitos praticados:** `ft.ElevatedButton`, `on_click`, `ft.Row`, `MainAxisAlignment`, `page.update()`, cor de fundo via `bgcolor`, alinhamento centralizado vertical e horizontal.
+**Conceitos praticados:** `ft.ElevatedButton`, `on_click`, `ft.Row`, `MainAxisAlignment`, `page.update()`, `bgcolor`, alinhamento centralizado.
 
 ---
 
@@ -167,7 +174,6 @@ O card de resultado começa invisível (`visible=False`) e só aparece após o c
 
 ```python
 texto_resultado = ft.Text(value="", size=20, weight=ft.FontWeight.BOLD, color="#FF00CC")
-
 card_resultado = ft.Card(visible=False, ...)
 
 def salvar_clique(e):
@@ -187,6 +193,8 @@ O app roda no **navegador web** via `ft.AppView.WEB_BROWSER`, mostrando a portab
 ![Atividade 3 — Input com saudação dinâmica no browser](atividades/capturas/captura3.png)
 
 > App rodando em `127.0.0.1` no Chrome. Após digitar "Breno" e clicar em "Salvar Nome", o card de resultado aparece com "Olá, Breno!" — e o campo é limpo automaticamente para a próxima entrada.
+
+---
 
 ### Atividade 4 — Lista de Compras com Quantidade Dinâmica
 
@@ -220,6 +228,74 @@ O `ft.Column` funciona como container reativo da lista: toda vez que um item é 
 ![Atividade 4 — Lista de compras com quantidade dinâmica](atividades/capturas/captura4.png)
 
 > Lista com dois itens inseridos ("Açaí" e "Tomate"), cada um com seus botões de incremento (verde) e remoção (vermelho). O campo de input fica vazio após a inserção, pronto para o próximo produto.
+
+---
+
+## Projetos
+
+Além dos exercícios guiados, o repositório inclui projetos completos que consolidam tudo que foi aprendido nas atividades.
+
+---
+
+### Pomodoro Inteligente v2
+
+**Objetivo:** construir um aplicativo desktop completo de produtividade — gerenciador de tarefas integrado a um cronômetro Pomodoro, com persistência de dados, sistema de temas e 12 funcionalidades distintas em um único arquivo Python.
+
+Este projeto representa um salto de complexidade em relação às atividades: saiu de componentes isolados para uma **arquitetura com estado centralizado**, navegação entre telas, threads e ciclo de vida completo de um app real.
+
+#### Funcionalidades implementadas
+
+- Adicionar, editar e excluir tarefas com nome, tempo e prioridade (Alta / Média / Baixa)
+- Barra lateral colorida por prioridade em cada cartão de tarefa
+- Pesquisa e filtro de tarefas em tempo real
+- Limpar pendentes ou concluídas em lote; refazer uma tarefa concluída
+- Cronômetro de contagem regressiva `MM:SS` com barra de progresso visual
+- Porcentagem e tempo decorrido/restante simultâneos; aviso visual nos últimos 20%
+- Ciclo automático Estudo → Descanso (toggle on/off)
+- Contador de sessões concluídas no cabeçalho
+- Atalhos de teclado: `Espaço` para iniciar/pausar, `R` para resetar
+- Alerta sonoro ao fim da sessão (Windows), com opção de silenciar
+- Tema claro pastel e escuro pastel com troca instantânea
+- Persistência automática em `tarefas.json` — salva a cada alteração, recarrega ao abrir
+
+#### Padrões e técnicas utilizados
+
+**Estado centralizado:** toda a lógica lê e escreve em um único dicionário `ESTADO`, evitando variáveis globais soltas e tornando o fluxo de dados previsível em funções aninhadas.
+
+**Thread para o cronômetro:** `page.run_thread(tick)` mantém a contagem regressiva sem bloquear a UI, com `ESTADO["rodando"]` como flag de controle thread-safe.
+
+**Closures em cartões dinâmicos:** cada cartão captura sua referência à tarefa via `lambda e, t=t: ...`, garantindo que editar/apagar opere sobre o item correto mesmo após múltiplas inserções.
+
+```python
+# Estado centralizado
+ESTADO = {
+    "tema": "clara", "som": True, "auto_descanso": False,
+    "tarefas": [], "tarefa_atual": None,
+    "tempo_total": 0, "tempo_restante": 0,
+    "rodando": False, "sessoes": 0,
+}
+
+# Thread do cronômetro
+def tick():
+    while ESTADO["rodando"] and ESTADO["tempo_restante"] > 0:
+        time.sleep(1)
+        ESTADO["tempo_restante"] -= 1
+        atualizar_visual_cronometro()
+    if ESTADO["tempo_restante"] <= 0:
+        finalizar()
+
+# Closure em cartão dinâmico
+ft.IconButton(
+    icon=ft.Icons.DELETE,
+    on_click=lambda e, t=t: apagar_tarefa(t)
+)
+```
+
+**Captura:**
+
+![Pomodoro Inteligente v2 — Tela de tarefas](projetos/pomodoro/capturas/captura1.png)
+
+> Interface no tema claro pastel com a aba **Tarefas** aberta: chips de prioridade selecionáveis no topo, campo de pesquisa e lista de tarefas com barra lateral colorida por prioridade, além dos botões de editar, executar e apagar em cada cartão.
 
 ---
 
@@ -271,6 +347,9 @@ python atividades/atividade3/main.py
 
 # Atividade 4
 python atividades/atividade4/main.py
+
+# Projeto — Pomodoro Inteligente v2
+python projetos/pomodoro/main.py
 ```
 
 > Arquivos com `view=ft.AppView.WEB_BROWSER` abrem automaticamente no navegador padrão. Os demais abrem como janela desktop nativa.
@@ -287,11 +366,17 @@ python atividades/atividade4/main.py
 - **Estado reativo** — mostrar/ocultar componentes com `visible`, atualizar valores em tempo real
 - **Estilo** — `bgcolor`, `color`, `border_radius`, `padding`, `FontWeight`, `ButtonStyle`
 - **Views** — `ft.AppView.WEB_BROWSER` vs janela desktop
-- **Listas dinâmicas** — `ft.Column` como container reativo, `.controls.append()` e `.controls.remove()`
+- **Listas dinâmicas** — `ft.Column` e `ft.ListView` como containers reativos
 - **Closures em eventos** — funções internas que capturam referências de componentes específicos
-- **Factory de componentes** — função que constrói e retorna um widget completo (`criar_linha`)
+- **Factory de componentes** — função que constrói e retorna um widget completo
 - **`ft.IconButton`** — botões de ícone com `tooltip`, `icon_color` e `on_click`
-- **`ft.Theme`** — configuração de tema global com `color_scheme_seed`
+- **Estado centralizado** — dicionário global como fonte única de verdade do app
+- **Threads** — `page.run_thread()` para operações sem bloquear a UI
+- **Persistência** — leitura e escrita em JSON com `pathlib.Path`
+- **Sistema de temas** — paleta de cores trocada dinamicamente em todos os componentes
+- **`ft.AlertDialog`** — diálogo modal com validação de campos
+- **`ft.ProgressBar`** e **`ft.SnackBar`** — feedback visual e notificações
+- **Atalhos de teclado** — `page.on_keyboard_event`
 
 ---
 
@@ -303,10 +388,12 @@ python atividades/atividade4/main.py
 | Atividade 1 — tela estática | ✅ Concluído |
 | Atividade 2 — cards e ícones | ✅ Concluído |
 | Atividade 3 — input e estado | ✅ Concluído |
+| Atividade 4 — lista dinâmica | ✅ Concluído |
+| Projeto — Pomodoro Inteligente v2 | ✅ Concluído |
 | Navegação entre telas (`ft.Route`) | 🔜 Planejado |
 | Consumo de API REST | 🔜 Planejado |
-| Tema escuro/claro dinâmico | 🔜 Planejado |
-| Build para desktop (executável) | 🔜 Planejado |
+| Tema escuro/claro dinâmico em novas atividades | 🔜 Planejado |
+| Build para desktop (executável `.exe`) | 🔜 Planejado |
 | Deploy web com Flet Cloud | 🔜 Planejado |
 
 ---
