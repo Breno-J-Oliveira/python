@@ -38,10 +38,13 @@ FLET/
     │   └── main.py      # Cards de contato com ícones
     ├── atividade3/
     │   └── main.py      # Input de texto com saudação dinâmica
+    ├── atividade4/
+    │   └── main.py      # Lista de compras com quantidade dinâmica
     └── capturas/
         ├── captura1.png
         ├── captura2.png
-        └── captura3.png
+        ├── captura3.png
+        └── captura4.png
 ```
 
 ---
@@ -185,6 +188,39 @@ O app roda no **navegador web** via `ft.AppView.WEB_BROWSER`, mostrando a portab
 
 > App rodando em `127.0.0.1` no Chrome. Após digitar "Breno" e clicar em "Salvar Nome", o card de resultado aparece com "Olá, Breno!" — e o campo é limpo automaticamente para a próxima entrada.
 
+### Atividade 4 — Lista de Compras com Quantidade Dinâmica
+
+**Objetivo:** construir um app funcional do zero — uma lista de compras onde o usuário digita um produto, clica em "Inserir" e vê o item aparecer na tela com botões de **+** e **−** para controlar a quantidade, além de poder remover qualquer item individualmente.
+
+Esta é a atividade de maior complexidade até aqui: cada linha da lista é um componente criado dinamicamente com **closures** (funções internas que capturam a referência do próprio elemento), permitindo que o botão de remoção saiba exatamente qual linha excluir.
+
+```python
+def criar_linha(produto):
+    qtd_texto = ft.Text("1", size=18, weight=ft.FontWeight.BOLD)
+
+    def adicionar(e):
+        qtd_texto.value = str(int(qtd_texto.value) + 1)
+        page.update()
+
+    linha = ft.Row([nome, grupo_quantidade], ...)
+    return linha
+
+def remover_linha(linha):
+    if linha in lista_produtos.controls:
+        lista_produtos.controls.remove(linha)
+        page.update()
+```
+
+O `ft.Column` funciona como container reativo da lista: toda vez que um item é adicionado ou removido via `.controls.append()` / `.controls.remove()`, basta chamar `page.update()` para refletir a mudança na tela — sem re-renderizar tudo.
+
+**Conceitos praticados:** `ft.Column` como lista dinâmica, `ft.IconButton`, closures em event handlers, factory function de componentes (`criar_linha`), `ft.Theme` com `color_scheme_seed`, limpeza de campo pós-inserção, `input.value.strip()` para validação básica.
+
+**Captura:**
+
+![Atividade 4 — Lista de compras com quantidade dinâmica](atividades/capturas/captura4.png)
+
+> Lista com dois itens inseridos ("Açaí" e "Tomate"), cada um com seus botões de incremento (verde) e remoção (vermelho). O campo de input fica vazio após a inserção, pronto para o próximo produto.
+
 ---
 
 ## Tecnologias
@@ -232,6 +268,9 @@ python atividades/atividade2/main.py
 
 # Atividade 3 (abre no browser)
 python atividades/atividade3/main.py
+
+# Atividade 4
+python atividades/atividade4/main.py
 ```
 
 > Arquivos com `view=ft.AppView.WEB_BROWSER` abrem automaticamente no navegador padrão. Os demais abrem como janela desktop nativa.
@@ -248,6 +287,11 @@ python atividades/atividade3/main.py
 - **Estado reativo** — mostrar/ocultar componentes com `visible`, atualizar valores em tempo real
 - **Estilo** — `bgcolor`, `color`, `border_radius`, `padding`, `FontWeight`, `ButtonStyle`
 - **Views** — `ft.AppView.WEB_BROWSER` vs janela desktop
+- **Listas dinâmicas** — `ft.Column` como container reativo, `.controls.append()` e `.controls.remove()`
+- **Closures em eventos** — funções internas que capturam referências de componentes específicos
+- **Factory de componentes** — função que constrói e retorna um widget completo (`criar_linha`)
+- **`ft.IconButton`** — botões de ícone com `tooltip`, `icon_color` e `on_click`
+- **`ft.Theme`** — configuração de tema global com `color_scheme_seed`
 
 ---
 
